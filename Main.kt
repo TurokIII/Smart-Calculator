@@ -106,23 +106,3 @@ fun parseOperators(input: String):Array<String> {
 
     return if (operators == "") emptyArray() else operators.trim().split(" ").toTypedArray()
 }
-
-//    for (c in cleanInput) {
-//        if (c.isDigit()) {
-//            numString += c
-//        } else {
-//            if (c !in "-+") throw Exception()
-//            if (numString.isNotEmpty()) {
-//                if (addition == "add") total += numString.toInt() else total -= numString.toInt()
-//                numString = ""
-//                addition = ""
-//            }
-//            addition = if (c == '-') "sub" else "add"
-//        }
-//    }
-//
-//    if (numString.isNotEmpty()) {
-//        if (addition == "add") total += numString.toInt() else total -= numString.toInt()
-//    }
-//
-//    return total
