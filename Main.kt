@@ -1,6 +1,7 @@
 package calculator
+import java.lang.Exception
+import java.lang.NumberFormatException
 import java.util.Scanner
-import kotlin.math.abs
 
 fun main() {
     getInput()
@@ -8,53 +9,117 @@ fun main() {
 
 fun getInput() {
     val scan = Scanner(System.`in`)
+    val variables = mutableMapOf<String, String>()
+
     while (true) {
-        val input = scan.nextLine()
-        if (input == "/exit") break else parseInputForAction(input)
+        val input = scan.nextLine().trim()
 
-
+        when {
+            input == "/exit" -> break
+            input == "/help" -> println("The program calculates the sum of numbers")
+            input == "" -> {}
+            input[0] == '/' -> println("Unknown command")
+            isVariableAssignment(input) -> saveVariable(input, variables)
+            else -> calculateResult(input, variables)
+        }
+        //println("MAP HAS:   $variables")
     }
     println("Bye!")
 }
 
-fun parseInputForAction(input: String) {
-    when {
-        input == "/help" -> println("The program calculates the sum of numbers")
-        input == "" -> {}
-        input[0] == '/' -> println("Unknown command")
-        else -> {
-            try {
-                val sum = calculateResult(input)
-                println(sum)
-            } catch (e: Exception) {
-                println("Invalid expression")
+fun isVariableAssignment(input: String): Boolean {
+    return input.contains("=")
+}
+
+fun isValidAssignment(input: String): Boolean {
+    val varRegex = Regex("""[a-zA-Z]+\s*=\s*(-?\d+|[a-zA-Z]+)""")
+    return input.matches(varRegex)
+}
+
+fun getVariableName(input: String): String {
+    val inputClean = input.replace(" ", "")
+    return inputClean.substring(0, inputClean.indexOf("="))
+}
+
+fun getVariableValue(input: String): String {
+    val inputClean = input.replace(" ", "")
+    return inputClean.substring(inputClean.indexOf("=") + 1)
+}
+
+fun saveVariable(input: String, variables: MutableMap<String, String>): MutableMap<String, String> {
+    val assignedCorrectly = isValidAssignment(input)
+
+    if (assignedCorrectly) {
+        val variableValue = getVariableValue(input)
+        val variableName = getVariableName(input)
+
+        if (isValidValue(variableValue, variables)) {
+            if (variables.containsKey(variableValue)) {
+                val referencedValue = variables.getOrDefault(variableValue, "")
+                variables[variableName] = referencedValue
+            } else {
+                variables[variableName] = variableValue
+            }
+        } else {
+            println("Invalid assignment")
+        }
+    } else {
+        println("Invalid assignment")
+    }
+
+    return variables
+}
+
+fun calculateResult(input: String, variables: MutableMap<String, String>) {
+    val cleanInput = reduceOperators(input)
+
+    if (variables.containsKey(input)) {
+        println(variables[input])
+        return
+    }
+
+    try {
+        println(evaluate(cleanInput, variables).toString())
+    } catch (e: NumberFormatException) {
+        println("Invalid Expression")  // Could write more useful message, but needs to be this to pass tests
+    } catch (e: Exception){
+        println(e.message)
+    }
+}
+
+fun evaluate(input: String, variables: MutableMap<String, String>): Int {
+    var result = 0
+    var operator = "+"
+    val pieces = input.split(" ")
+
+    for (element in pieces) {
+        when {
+            isNumber(element) -> {
+                result = executeOperation(result, element.toInt(), operator)
+                continue
+            }
+            isOperator(element) -> {
+                operator = element
+            }
+            isVariable(element) -> {
+                if (variables.containsKey(element)) {
+                    val varValue = variables[element]!!.toInt()
+                    result = executeOperation(result, varValue, operator)
+                } else {
+                    throw Exception("Unknown variable")
+                }
             }
         }
     }
+
+    return result
 }
 
-fun calculateResult(input: String): Int {
-    var total = 0
-    val cleanInput = cleanInput(input)
-    val numbers = parseNumbers(cleanInput)
-    val operators = parseOperators(cleanInput)
-
-    val delta = abs(numbers.size - operators.size)
-    if (delta != 1) throw Exception()
-
-    for (i in numbers.indices) {
-        if (i == 0) {
-            total += numbers[0].toInt()
-        } else {
-            val operator = operators[i - 1]
-            if (operator == "+") total += numbers[i].toInt() else total -= numbers[i].toInt()
-        }
-    }
-
-    return total
+fun executeOperation(result: Int, number: Int, operation: String): Int {
+    return if (operation == "+") result + number else result - number
 }
 
-fun cleanInput(input: String): String {
+fun reduceOperators(input: String): String {
     var result = input
     while (result.contains("++")) { result = result.replace("++", "+") }
     while (result.contains("--")) { result = result.replace("--", "+") }
@@ -62,47 +127,48 @@ fun cleanInput(input: String): String {
     while (result.contains("+-")) { result = result.replace("+-", "-") }
     while (result.contains("++")) { result = result.replace("++", "+") }
 
-    return result.replace(" ", "")
+    return result
 }
 
-fun parseNumbers(input: String):Array<String> {
-    var numbers = ""
-    var numString = ""
-
-    for (i in input.indices) {
-        val char = input[i]
-        if (i == 0 ) {
-            if (char == '-') {
-                numString += char
-                continue
-            }
-            if (char == '+') {
-                continue
-            }
-        }
-        if (char.isDigit()) {
-            numString += char
-        } else {
-            numbers += " $numString"
-            numString = ""
-        }
-    }
-    if (numString.isNotEmpty()) numbers += " $numString"
-
-    return numbers.trim().split(" ").toTypedArray()
+fun isNumber(input: String): Boolean {
+    val numRegex = Regex("""-?\d+""")
+    return input.matches(numRegex)
 }
 
-fun parseOperators(input: String):Array<String> {
-    var operators = ""
+fun isOperator(input: String): Boolean {
+    return input in "-+"
+}
 
-    for (i in input.indices) {
-        val char = input[i]
-        if (i == 0 && char in "-+")  continue
-        if (char.isDigit()) continue
-        if (char in "-+") {
-            operators += " $char"
-        }
+fun isVariable(input: String): Boolean {
+    val varRegex = Regex("""[a-zA-z]+""")
+    return input.matches(varRegex)
+}
+
+fun isValidValue(value: String, variables: MutableMap<String, String>): Boolean {
+
+//    println("ISNUMBER:  ${isNumber(value)}")
+//    println("INMAP:  ${variables.containsKey(value)}")
+    return isNumber(value) || variables.containsKey(value)
+}
+
+fun parseNumbers(input: String): IntArray {
+    val inputs = input.split(" ")
+    var numbers = intArrayOf()
+
+    for (i in inputs.indices step 2) {
+        val number = inputs[i].toInt()
+        numbers += number
     }
+    return numbers
+}
 
-    return if (operators == "") emptyArray() else operators.trim().split(" ").toTypedArray()
+fun parseOperators(input: String): Array<String> {
+    val inputs = input.split(" ")
+    var operators = emptyArray<String>()
+
+    for (i in 1 until inputs.size step 2) {
+        val operator = inputs[i]
+        if (operator in "-+") operators += operator else throw Exception()
+    }
+    return operators
 }
