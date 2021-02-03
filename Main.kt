@@ -1,7 +1,7 @@
 package calculator
 import java.lang.Exception
 import java.lang.NumberFormatException
-import java.util.Scanner
+import java.util.*
 
 fun main() {
     getInput()
@@ -20,7 +20,8 @@ fun getInput() {
             input == "" -> {}
             input[0] == '/' -> println("Unknown command")
             isVariableAssignment(input) -> saveVariable(input, variables)
-            else -> calculateResult(input, variables)
+            else -> toPostFix(input, variables)
+                //calculateResult(input, variables)
         }
         //println("MAP HAS:   $variables")
     }
@@ -68,6 +69,45 @@ fun saveVariable(input: String, variables: MutableMap<String, String>): MutableM
     }
 
     return variables
+}
+
+fun toPostFix(input: String, variables: MutableMap<String, String>): String {
+    val formulaList = mutableListOf<String>()
+    val stack = Stack<String>()
+    val pieces = input.split(" ")
+
+    for (e in pieces) {
+        when {
+            isNumber(e) -> formulaList.add(e)
+            isVariable(e) -> formulaList.add(e)
+            isOperator(e) -> {
+                if (stack.isEmpty() || stack.peek() == "(") {
+                    stack.push(e)
+                    continue
+                }
+                if (operatorPrecedence(e) > operatorPrecedence(stack.peek())) {
+                    stack.push(e)
+                } else {
+                    while (operatorPrecedence(e) < operatorPrecedence(stack.peek()))
+                }
+            }
+        }
+    }
+
+
+    return ""
+}
+
+fun operatorPrecedence(operator: String): Int {
+    return when (operator) {
+        "(" -> 3
+        ")" -> 3
+        "/" -> 2
+        "*" -> 2
+        "+" -> 1
+        "-" -> 1
+        else -> 0
+    }
 }
 
 fun calculateResult(input: String, variables: MutableMap<String, String>) {
@@ -136,7 +176,7 @@ fun isNumber(input: String): Boolean {
 }
 
 fun isOperator(input: String): Boolean {
-    return input in "-+"
+    return input in "-+/*"
 }
 
 fun isVariable(input: String): Boolean {
