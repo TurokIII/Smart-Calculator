@@ -20,10 +20,14 @@ fun getInput() {
             input == "" -> {}
             input[0] == '/' -> println("Unknown command")
             isVariableAssignment(input) -> saveVariable(input, variables)
-            else -> toPostFix(input, variables)
-                //calculateResult(input, variables)
+            else -> {
+                try {
+                    toPostfix(input, variables)
+                } catch (e: Exception) {
+                    println(e.message)
+                }
+            }
         }
-        //println("MAP HAS:   $variables")
     }
     println("Bye!")
 }
@@ -37,12 +41,12 @@ fun isValidAssignment(input: String): Boolean {
     return input.matches(varRegex)
 }
 
-fun getVariableName(input: String): String {
+fun parseVariableName(input: String): String {
     val inputClean = input.replace(" ", "")
     return inputClean.substring(0, inputClean.indexOf("="))
 }
 
-fun getVariableValue(input: String): String {
+fun parseVariableValue(input: String): String {
     val inputClean = input.replace(" ", "")
     return inputClean.substring(inputClean.indexOf("=") + 1)
 }
@@ -51,8 +55,8 @@ fun saveVariable(input: String, variables: MutableMap<String, String>): MutableM
     val assignedCorrectly = isValidAssignment(input)
 
     if (assignedCorrectly) {
-        val variableValue = getVariableValue(input)
-        val variableName = getVariableName(input)
+        val variableValue = parseVariableValue(input)
+        val variableName = parseVariableName(input)
 
         if (isValidValue(variableValue, variables)) {
             if (variables.containsKey(variableValue)) {
@@ -71,12 +75,15 @@ fun saveVariable(input: String, variables: MutableMap<String, String>): MutableM
     return variables
 }
 
-fun toPostFix(input: String, variables: MutableMap<String, String>): String {
+fun toPostfix(input: String, variables: MutableMap<String, String>) {
     val formulaList = mutableListOf<String>()
     val stack = Stack<String>()
-    val pieces = input.split(" ")
+    val cleanInput = sanitize(input).replace("(", "( ").replace(")", " )")
+    //println("CLEAN INPUT:   $cleanInput")
+    val pieces = cleanInput.split(" ")
 
     for (e in pieces) {
+        //println("E IS: $e")
         when {
             isNumber(e) -> formulaList.add(e)
             isVariable(e) -> formulaList.add(e)
@@ -85,17 +92,86 @@ fun toPostFix(input: String, variables: MutableMap<String, String>): String {
                     stack.push(e)
                     continue
                 }
+                //println("PEEK: ${stack.peek()}")
                 if (operatorPrecedence(e) > operatorPrecedence(stack.peek())) {
                     stack.push(e)
                 } else {
-                    while (operatorPrecedence(e) < operatorPrecedence(stack.peek()))
+                    while (operatorPrecedence(e) <= operatorPrecedence(stack.peek()) && stack.peek() != "(") {
+                        formulaList.add(stack.pop())
+                        //println("PEEK2:   ${stack.peek()}")
+                        if (stack.isEmpty()) {
+                            break
+                        }
+                    }
+                    stack.push(e)
                 }
+            }
+            e == "(" -> stack.push(e)
+            e == ")" -> {
+                while (stack.peek() != "(") {
+                    formulaList.add(stack.pop())
+                }
+                stack.pop() // get rid of the left parens remaining on top of stack
             }
         }
     }
 
+    while (!stack.isEmpty()) {
+        formulaList.add(stack.pop())
+    }
 
-    return ""
+    val result = formulaList.joinToString(" ")
+    //println("Formula:   $result")
+
+    evaluatePostfix(formulaList, variables)
+}
+
+fun evaluatePostfix(elements: MutableList<String>, variables: MutableMap<String, String>) {
+    val stack = Stack<String>()
+
+    for (e in elements) {
+        when {
+            isNumber(e) -> stack.push(e)
+            isVariable(e) -> stack.push(getVariableValue(e, variables))
+            isOperator(e) -> {
+                val num2 = stack.pop()
+                val num1 = stack.pop()
+                val result = evaluateOperation(num1,num2, e)
+                stack.push(result)
+            }
+        }
+    }
+    //println("RESULT is: ${stack.pop()}")
+    println(stack.pop())
+}
+
+fun evaluateOperation(operand1: String, operand2: String, operator: String): String {
+    val result: Int
+    val num1 = operand1.toInt()
+    val num2 = operand2.toInt()
+
+
+    result = when (operator) {
+        "+" -> num1 + num2
+        "-" -> num1 - num2
+        "*" -> num1 * num2
+        "/" -> num1 / num2
+        else -> throw Exception("Unknown operator")
+    }
+
+    return result.toString()
+}
+
+fun getVariableValue(variable: String, variables: MutableMap<String, String>): String {
+    val result: String
+
+    if (variables.containsKey(variable)) {
+        result = variables.getOrDefault(variable, "0")
+    } else {
+        throw Exception("Unknown variable")
+    }
+
+    return result
 }
 
 fun operatorPrecedence(operator: String): Int {
@@ -110,53 +186,31 @@ fun operatorPrecedence(operator: String): Int {
     }
 }
 
-fun calculateResult(input: String, variables: MutableMap<String, String>) {
-    val cleanInput = reduceOperators(input)
+fun sanitize(input: String): String {
+    var leftCount = 0
+    var rightCount = 0
 
-    if (variables.containsKey(input)) {
-        println(variables[input])
-        return
+    for (c in input) {
+        if (c == '(') leftCount++
+        if (c == ')') rightCount++
     }
 
-    try {
-        println(evaluate(cleanInput, variables).toString())
-    } catch (e: NumberFormatException) {
-        println("Invalid Expression")  // Could write more useful message, but needs to be this to pass tests
-    } catch (e: Exception){
-        println(e.message)
-    }
-}
+    if (leftCount != rightCount) throw Exception("Invalid Expression")
+    if (input.contains("**") || input.contains("//")) throw Exception("Invalid Expression")
 
-fun evaluate(input: String, variables: MutableMap<String, String>): Int {
-    var result = 0
-    var operator = "+"
-    val pieces = input.split(" ")
-
-    for (element in pieces) {
-        when {
-            isNumber(element) -> {
-                result = executeOperation(result, element.toInt(), operator)
-                continue
-            }
-            isOperator(element) -> {
-                operator = element
-            }
-            isVariable(element) -> {
-                if (variables.containsKey(element)) {
-                    val varValue = variables[element]!!.toInt()
-                    result = executeOperation(result, varValue, operator)
-                } else {
-                    throw Exception("Unknown variable")
-                }
-            }
-        }
-    }
+    var result = reduceOperators(input)
+    val plusRegex = Regex("""\+""")
+    val subRegex = Regex("""-""")
+    val mulRegex = Regex("""\*""")
+    val divRegex = Regex("""/""")
+    result = result.replace(plusRegex, " + ")
+    result = result.replace(subRegex, " - ")
+    result = result.replace(mulRegex, " * ")
+    result = result.replace(divRegex, " / ")
+    result = result.replace("  ", " ")
+    //println("SANITIZED: $result")
 
     return result
-}
-
-fun executeOperation(result: Int, number: Int, operation: String): Int {
-    return if (operation == "+") result + number else result - number
 }
 
 fun reduceOperators(input: String): String {
@@ -185,30 +239,5 @@ fun isVariable(input: String): Boolean {
 }
 
 fun isValidValue(value: String, variables: MutableMap<String, String>): Boolean {
-
-//    println("ISNUMBER:  ${isNumber(value)}")
-//    println("INMAP:  ${variables.containsKey(value)}")
     return isNumber(value) || variables.containsKey(value)
-}
-
-fun parseNumbers(input: String): IntArray {
-    val inputs = input.split(" ")
-    var numbers = intArrayOf()
-
-    for (i in inputs.indices step 2) {
-        val number = inputs[i].toInt()
-        numbers += number
-    }
-    return numbers
-}
-
-fun parseOperators(input: String): Array<String> {
-    val inputs = input.split(" ")
-    var operators = emptyArray<String>()
-
-    for (i in 1 until inputs.size step 2) {
-        val operator = inputs[i]
-        if (operator in "-+") operators += operator else throw Exception()
-    }
-    return operators
 }
