@@ -79,11 +79,9 @@ fun toPostfix(input: String, variables: MutableMap<String, String>) {
     val formulaList = mutableListOf<String>()
     val stack = Stack<String>()
     val cleanInput = sanitize(input).replace("(", "( ").replace(")", " )")
-    //println("CLEAN INPUT:   $cleanInput")
     val pieces = cleanInput.split(" ")
 
     for (e in pieces) {
-        //println("E IS: $e")
         when {
             isNumber(e) -> formulaList.add(e)
             isVariable(e) -> formulaList.add(e)
@@ -92,13 +90,11 @@ fun toPostfix(input: String, variables: MutableMap<String, String>) {
                     stack.push(e)
                     continue
                 }
-                //println("PEEK: ${stack.peek()}")
                 if (operatorPrecedence(e) > operatorPrecedence(stack.peek())) {
                     stack.push(e)
                 } else {
                     while (operatorPrecedence(e) <= operatorPrecedence(stack.peek()) && stack.peek() != "(") {
                         formulaList.add(stack.pop())
-                        //println("PEEK2:   ${stack.peek()}")
                         if (stack.isEmpty()) {
                             break
                         }
@@ -120,9 +116,6 @@ fun toPostfix(input: String, variables: MutableMap<String, String>) {
         formulaList.add(stack.pop())
     }
 
-    val result = formulaList.joinToString(" ")
-    //println("Formula:   $result")
-
     evaluatePostfix(formulaList, variables)
 }
 
@@ -141,7 +134,6 @@ fun evaluatePostfix(elements: MutableList<String>, variables: MutableMap<String,
             }
         }
     }
-    //println("RESULT is: ${stack.pop()}")
     println(stack.pop())
 }
 
@@ -208,7 +200,6 @@ fun sanitize(input: String): String {
     result = result.replace(mulRegex, " * ")
     result = result.replace(divRegex, " / ")
     result = result.replace("  ", " ")
-    //println("SANITIZED: $result")
 
     return result
 }
