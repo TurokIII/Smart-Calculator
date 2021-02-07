@@ -2,6 +2,7 @@ package calculator
 import java.lang.Exception
 import java.lang.NumberFormatException
 import java.util.*
+import java.math.BigInteger
 
 fun main() {
     getInput()
@@ -138,9 +139,9 @@ fun evaluatePostfix(elements: MutableList<String>, variables: MutableMap<String,
 }
 
 fun evaluateOperation(operand1: String, operand2: String, operator: String): String {
-    val result: Int
-    val num1 = operand1.toInt()
-    val num2 = operand2.toInt()
+    val result: BigInteger
+    val num1 = operand1.toBigInteger()
+    val num2 = operand2.toBigInteger()
 
 
     result = when (operator) {
